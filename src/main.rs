@@ -6,7 +6,11 @@ use axum::{routing::get, Json, Router};
 use axum_valid::Valid;
 use chrono::Utc;
 use fake::faker::address::raw::{CityName, StreetName, ZipCode};
-use fake::faker::internet::raw::SafeEmail;
+use fake::faker::boolean::raw::Boolean;
+use fake::faker::color::raw::HexColor;
+use fake::faker::creditcard::raw::CreditCardNumber;
+use fake::faker::internet::raw::{IPv4, SafeEmail};
+use fake::faker::lorem::raw::{Paragraph, Words};
 use fake::faker::name::raw::Name;
 use fake::faker::number::raw::NumberWithFormat;
 use fake::faker::phone_number::raw::PhoneNumber;
@@ -38,13 +42,19 @@ macro_rules! generate_replacements {
 lazy_static! {
     static ref STRING_SUBSTITUTIONS: StringSubstitutionsMap = generate_replacements! {
         "address" => || StreetName(EN).fake(),
+        "bool" => || Boolean(EN, 50).fake::<bool>().to_string(),
         "city" => || CityName(EN).fake(),
+        "color" => || HexColor(EN).fake(),
+        "creditcard" => || CreditCardNumber(EN).fake(),
         "datetime" => || Utc::now().to_rfc3339(),
         "email" => || SafeEmail(EN).fake(),
+        "ip" => || IPv4(EN).fake(),
         "name" => || Name(EN).fake(),
         "number" => || NumberWithFormat(EN, "^###").fake(),
+        "paragraph" => || Paragraph(EN, 1..3).fake(),
         "phone" => || PhoneNumber(EN).fake(),
         "uuid" => || Uuid::new_v4().to_string(),
+        "words" => || Words(EN, 3..5).fake::<Vec<String>>().join(" "),
         "zip" => || ZipCode(EN).fake()
     };
 }
@@ -148,7 +158,7 @@ async fn health_check() -> &'static str {
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
     let cors_layer = CorsLayer::new()
-        .allow_methods([Method::GET])
+        .allow_methods([Method::HEAD, Method::GET])
         .allow_origin(cors::Any);
 
     let router = Router::new()
