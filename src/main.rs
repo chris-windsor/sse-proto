@@ -1,5 +1,5 @@
 use axum::extract::Query;
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::response::sse::Event;
 use axum::response::Sse;
 use axum::{routing::get, Json, Router};
@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::sleep;
+use tower_http::cors::{self, CorsLayer};
 use uuid::Uuid;
 use validator::Validate;
 
@@ -146,10 +147,15 @@ async fn health_check() -> &'static str {
 
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
+    let cors_layer = CorsLayer::new()
+        .allow_methods([Method::GET])
+        .allow_origin(cors::Any);
+
     let router = Router::new()
         .route("/", get(sse))
         .route("/substitutions", get(get_available_substitutions))
-        .route("/health", get(health_check));
+        .route("/health", get(health_check))
+        .layer(cors_layer);
 
     Ok(router.into())
 }
