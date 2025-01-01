@@ -5,16 +5,15 @@ use axum::response::Sse;
 use axum::{routing::get, Json, Router};
 use axum_valid::Valid;
 use chrono::Utc;
-use fake::faker::address::raw::{CityName, StreetName, ZipCode};
-use fake::faker::boolean::raw::Boolean;
-use fake::faker::color::raw::HexColor;
-use fake::faker::creditcard::raw::CreditCardNumber;
-use fake::faker::internet::raw::{IPv4, SafeEmail};
-use fake::faker::lorem::raw::{Paragraph, Words};
-use fake::faker::name::raw::Name;
-use fake::faker::number::raw::NumberWithFormat;
-use fake::faker::phone_number::raw::PhoneNumber;
-use fake::locales::EN;
+use fake::faker::address::en::{CityName, StreetName, ZipCode};
+use fake::faker::boolean::en::Boolean;
+use fake::faker::color::en::HexColor;
+use fake::faker::creditcard::en::CreditCardNumber;
+use fake::faker::internet::en::{IPv4, SafeEmail};
+use fake::faker::lorem::en::{Paragraph, Words};
+use fake::faker::name::en::Name;
+use fake::faker::number::en::NumberWithFormat;
+use fake::faker::phone_number::en::PhoneNumber;
 use fake::Fake;
 use futures::Stream;
 use lazy_static::lazy_static;
@@ -41,21 +40,21 @@ macro_rules! generate_replacements {
 
 lazy_static! {
     static ref STRING_SUBSTITUTIONS: StringSubstitutionsMap = generate_replacements! {
-        "address" => || StreetName(EN).fake(),
-        "bool" => || Boolean(EN, 50).fake::<bool>().to_string(),
-        "city" => || CityName(EN).fake(),
-        "color" => || HexColor(EN).fake(),
-        "creditcard" => || CreditCardNumber(EN).fake(),
+        "address" => || StreetName().fake(),
+        "bool" => || Boolean(50).fake::<bool>().to_string(),
+        "city" => || CityName().fake(),
+        "color" => || HexColor().fake(),
+        "creditcard" => || CreditCardNumber().fake(),
         "datetime" => || Utc::now().to_rfc3339(),
-        "email" => || SafeEmail(EN).fake(),
-        "ip" => || IPv4(EN).fake(),
-        "name" => || Name(EN).fake(),
-        "number" => || NumberWithFormat(EN, "^###").fake(),
-        "paragraph" => || Paragraph(EN, 1..3).fake(),
-        "phone" => || PhoneNumber(EN).fake(),
+        "email" => || SafeEmail().fake(),
+        "ip" => || IPv4().fake(),
+        "name" => || Name().fake(),
+        "number" => || NumberWithFormat(, "^###").fake(),
+        "paragraph" => || Paragraph(1..3).fake(),
+        "phone" => || PhoneNumber().fake(),
         "uuid" => || Uuid::new_v4().to_string(),
-        "words" => || Words(EN, 3..5).fake::<Vec<String>>().join(" "),
-        "zip" => || ZipCode(EN).fake()
+        "words" => || Words(3..5).fake::<Vec<String>>().join(" "),
+        "zip" => || ZipCode().fake()
     };
 }
 
@@ -90,11 +89,11 @@ fn fill_string(subject_string: &String) -> Value {
         }
     }
 
-    return Value::String(result);
+    Value::String(result)
 }
 
 fn fill_object_fields(object: &Map<String, Value>) -> Map<String, Value> {
-    let new_objects = object
+    object
         .iter()
         .map(|(key, value)| {
             let replacement_value = match value {
@@ -105,16 +104,14 @@ fn fill_object_fields(object: &Map<String, Value>) -> Map<String, Value> {
 
             replacement_value
         })
-        .collect::<Map<String, Value>>();
-
-    new_objects
+        .collect::<Map<String, Value>>()
 }
 
 #[derive(Deserialize, Validate)]
 struct SSEQuery {
-    #[validate(range(min = 1000, message = "interval_min must be greater than 1000ms"))]
+    #[validate(range(min = 1000, message = "interval_min must be >= 1000ms"))]
     interval_min: u64,
-    #[validate(range(min = 1000, message = "interval_max must be greater than 1000ms"))]
+    #[validate(range(min = 2000, message = "interval_max must be >= 2000ms"))]
     interval_max: u64,
     shape: String,
 }
@@ -151,10 +148,6 @@ async fn get_available_substitutions(
         .collect::<Vec<&str>>())))
 }
 
-async fn health_check() -> &'static str {
-    "howdy 🤠"
-}
-
 #[shuttle_runtime::main]
 async fn axum() -> shuttle_axum::ShuttleAxum {
     let cors_layer = CorsLayer::new()
@@ -164,7 +157,6 @@ async fn axum() -> shuttle_axum::ShuttleAxum {
     let router = Router::new()
         .route("/", get(sse))
         .route("/substitutions", get(get_available_substitutions))
-        .route("/health", get(health_check))
         .layer(cors_layer);
 
     Ok(router.into())
