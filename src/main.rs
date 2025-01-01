@@ -49,7 +49,7 @@ lazy_static! {
         "email" => || SafeEmail().fake(),
         "ip" => || IPv4().fake(),
         "name" => || Name().fake(),
-        "number" => || NumberWithFormat(, "^###").fake(),
+        "number" => || NumberWithFormat("^###").fake(),
         "paragraph" => || Paragraph(1..3).fake(),
         "phone" => || PhoneNumber().fake(),
         "uuid" => || Uuid::new_v4().to_string(),
@@ -148,16 +148,17 @@ async fn get_available_substitutions(
         .collect::<Vec<&str>>())))
 }
 
-#[shuttle_runtime::main]
-async fn axum() -> shuttle_axum::ShuttleAxum {
+#[tokio::main]
+async fn main() {
     let cors_layer = CorsLayer::new()
         .allow_methods([Method::HEAD, Method::GET])
         .allow_origin(cors::Any);
 
-    let router = Router::new()
+    let app = Router::new()
         .route("/", get(sse))
         .route("/substitutions", get(get_available_substitutions))
         .layer(cors_layer);
 
-    Ok(router.into())
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
